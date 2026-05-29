@@ -38,13 +38,14 @@ export default function handleError(error: unknown, res?: typeof NextResponse) {
         errorObj.message = error.issues[0].message || "Invalid input";
     }
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        const modelName = (error.meta?.modelName as string) || "Field";
+    if (error instanceof Error && error.name === "PrismaClientKnownRequestError") {
+        const prismaError = error as Prisma.PrismaClientKnownRequestError;
+        const modelName = (prismaError.meta?.modelName as string) || "Field";
         status = 400;
-        console.log(error.code);
-        if (error.code === "P2002") {
+        console.log(prismaError.code);
+        if (prismaError.code === "P2002") {
             errorObj.message = `${modelName} already exists.`;
-        } else if (error.code === "P2025") {
+        } else if (prismaError.code === "P2025") {
             errorObj.message = `${modelName} not found.`;
         }
     }

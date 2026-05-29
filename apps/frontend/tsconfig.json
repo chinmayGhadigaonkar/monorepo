@@ -1,0 +1,38 @@
+{
+    "compilerOptions": {
+        "module": "ESNext",
+        "baseUrl": ".",
+        "moduleResolution": "bundler",
+        "target": "ES2023",
+        "strict": true,
+        "esModuleInterop": true,
+        "lib": ["dom", "dom.iterable", "esnext"],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "jsx": "preserve",
+        "incremental": true,
+        "plugins": [
+            {
+                "name": "next"
+            }
+        ],
+        "paths": {
+            "@/*": ["./src/*"],
+            "@/prisma-types/*": ["../../packages/database/generated/prisma/*"]
+        },
+        "outDir": "dist"
+    },
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        ".next/types/**/*.ts",
+        "server.ts",
+        ".next/dev/types/**/*.ts",
+        "generated/prisma/**/*"
+    ],
+    "exclude": ["node_modules"]
+}

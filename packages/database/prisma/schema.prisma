@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceUserRole {
+  MEMBER
+  ADMIN
+  GUEST
+}
+
+model User {
+  id                  String             @id @default(uuid())
+  name                String
+  email               String             @unique
+  password            String?
+  phone               String?
+  status              String?            @default("active") // active, away, do not disturb, offline
+  designation         String?
+  profileImage        String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  lastUsedWorkspaceId String?
+  createdWorkspaces   Workspace[]        @relation("workspaceCreatedBy")
+  updatedWorkspaces   Workspace[]        @relation("workspaceUpdatedBy")
+  workspaceUsers      WorkspaceUser[]
+  lastUsedWorkspace   Workspace?         @relation(fields: [lastUsedWorkspaceId], references: [id])
+  WorkspaceChannel    WorkspaceChannel[]
+  invites             Invite[]
+  emailVerified       Boolean            @default(false)
+  image               String?
+  sessions            Session[]
+  accounts            Account[]
+
+  @@map("user")
+}
+
+model Workspace {
+  id                    String             @id @default(uuid())
+  name                  String
+  profileImage          String?
+  createdBy             String
+  updatedBy             String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  workspaceUsers        WorkspaceUser[]
+  createdByUser         User               @relation(fields: [createdBy], references: [id], name: "workspaceCreatedBy")
+  updatedByUser         User?              @relation(fields: [updatedBy], references: [id], name: "workspaceUpdatedBy")
+  lastUsedWorkspaceUser User[]
+  workspaceChannels     WorkspaceChannel[]
+  invites               Invite[]
+  dmgroups              DMGroup[]
+
+  @@unique([name, createdBy])
+}
+
+model WorkspaceUser {
+  id               String             @id @default(uuid())
+  workspaceId      String
+  userId           String
+  role             WorkspaceUserRole  @default(MEMBER)
+  joinedAt         DateTime           @default(now())
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id])
+  user             User               @relation(fields: [userId], references: [id])
+  messageSender    Message[]          @relation("senderUser")
+  workspaceChannel WorkspaceChannel[]
+  dmGroups         DMGroup[]          @relation("dmGroupsUser")
+  dmGroupsCreated  DMGroup[]          @relation("dmGroupCreator")
+
+  @@unique([workspaceId, userId])
+}
+
+model WorkspaceChannel {
+  id                        String          @id @default(uuid())
+  name                      String
+  topic                     String?
+  description               String?
+  managedByWorkspaceUserIds String[]
+  workspaceId               String
+  createdByUserId           String
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+  messages                  Message[]
+  workspace                 Workspace       @relation(fields: [workspaceId], references: [id])
+  createdByUser             User            @relation(fields: [createdByUserId], references: [id])
+  workspaceUsers            WorkspaceUser[]
+  invites                   Invite[]
+
+  @@unique([name, workspaceId])
+}
+
+model Message {
+  id                 String            @id @default(uuid())
+  content            String?
+  files              String[]
+  workspaceChannelId String?
+  senderId           String
+  dmGroupId          String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  workspaceChannel   WorkspaceChannel? @relation(fields: [workspaceChannelId], references: [id])
+  dmGroup            DMGroup?          @relation(fields: [dmGroupId], references: [id])
+  senderUser         WorkspaceUser     @relation(fields: [senderId], references: [id], name: "senderUser")
+}
+
+model DMGroup {
+  id               String          @id @default(uuid())
+  workspaceId      String
+  workspaceUserIds String[]
+  messages         Message[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdByUserId  String
+  workspaceUsers   WorkspaceUser[] @relation(name: "dmGroupsUser")
+  createdByUser    WorkspaceUser   @relation(name: "dmGroupCreator", fields: [createdByUserId], references: [id])
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, workspaceUserIds])
+}
+
+enum INVITATION_TYPE {
+  WORKSPACE
+  CHANNEL
+}
+
+enum INVITE_STATUS {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Invite {
+  id          String          @id @default(uuid())
+  type        INVITATION_TYPE
+  workspaceId String?
+  channelId   String?
+  email       String
+  inviterId   String
+  expiryAt    DateTime
+  inviteCode  String
+  status      INVITE_STATUS   @default(PENDING)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace Workspace?        @relation(fields: [workspaceId], references: [id])
+  channel   WorkspaceChannel? @relation(fields: [channelId], references: [id])
+  inviter   User              @relation(fields: [inviterId], references: [id])
+
+  @@unique([inviteCode])
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
